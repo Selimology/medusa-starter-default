@@ -1,4 +1,5 @@
 const dotenv = require("dotenv");
+const {hostname} = require("os");
 
 let ENV_FILE_NAME = "";
 switch (process.env.NODE_ENV) {
@@ -25,23 +26,46 @@ try {
 const ADMIN_CORS =
   process.env.ADMIN_CORS || "http://localhost:7000,http://localhost:7001";
 
+
 // CORS to avoid issues when consuming Medusa from a client
-const STORE_CORS = process.env.STORE_CORS || "http://localhost:8000";
+const STORE_CORS = process.env.STORE_CORS || "http://localhost:8000";  
+
+const ADMIN_APP_PORT = process.env.PORT || 7001;
+
 
 const DATABASE_URL =
   process.env.DATABASE_URL || "postgres://localhost/medusa-starter-default";
 
 const REDIS_URL = process.env.REDIS_URL || "redis://localhost:6379";
 
-const plugins = [
-  `medusa-fulfillment-manual`,
-  `medusa-payment-manual`,
-  {
+const CLOUDINARY_CLOUD_NAME = process.env.CLOUDINARY_CLOUD_NAME;
+const CLOUDINARY_API_KEY = process.env.CLOUDINARY_API_KEY;
+const CLOUDINARY_API_SECRET = process.env.CLOUDINARY_API_SECRET;
+const cloudinaryConfigured = CLOUDINARY_CLOUD_NAME && CLOUDINARY_API_KEY && CLOUDINARY_API_SECRET;
+
+const fileServicePlugin = cloudinaryConfigured
+  ? {
+
+
+    resolve: `medusa-file-cloudinary`,
+    options: {
+      cloud_name: CLOUDINARY_CLOUD_NAME,
+      api_key: CLOUDINARY_API_KEY,
+      api_secret: CLOUDINARY_API_SECRET,
+      secure: true,
+    },
+  }
+  : {
     resolve: `@medusajs/file-local`,
     options: {
       upload_dir: "uploads",
     },
-  },
+  };
+
+const plugins = [
+  `medusa-fulfillment-manual`,
+  `medusa-payment-manual`,
+  fileServicePlugin,
   {
     resolve: "@medusajs/admin",
     /** @type {import('@medusajs/admin').PluginOptions} */
@@ -49,9 +73,25 @@ const plugins = [
       autoRebuild: true,
       develop: {
         open: process.env.OPEN_BROWSER !== "false",
+        port: ADMIN_APP_PORT
       },
     },
   },
+  {
+    resolve : `medusa-payment-stripe`,
+    options : {
+      api_key: process.env.STRIPE_API_KEY,
+      webhook_secret:process.env.STRIPE_WEBHOOK_SECRET,
+    },
+  },
+  {
+    resolve: `medusa-taxes-stripe`,
+    options:{
+      stripeApiKey: process.env.STRIPE_API_KEY,
+      webhookSecret: process.env.STRIPE_WEBHOOK_SECRET
+    }
+  },
+
 ];
 
 const modules = {
@@ -85,4 +125,7 @@ module.exports = {
   projectConfig,
   plugins,
   modules,
+  featureFlags: {
+    product_categories: true
+  }
 };
